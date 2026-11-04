@@ -14,13 +14,12 @@ app = FastAPI(title="Makuori Store API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://makuori-store-git-main-makuori-store.vercel.app"
+        "https://makuori-store.vercel.app"
     ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 class ProductSchema(BaseModel):
     name: str
