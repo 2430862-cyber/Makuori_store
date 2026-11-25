@@ -1,8 +1,12 @@
 
 import { useState, type FormEvent } from 'react'
+import { login } from '../services/api'
 
 type LoginProps = {
-  onLogin: (token: string, user: { id: number; name: string; email: string; role: string }) => void
+  onLogin: (
+    token: string,
+    user: { id: number; name: string; email: string; role: string }
+  ) => void
   onSwitchToRegister: () => void
 }
 
@@ -10,28 +14,27 @@ function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
+    setLoading(true)
 
     try {
-      const response = await fetch('https://makuori-store.onrender.com/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
+      const data = await login(email, password)
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.detail || 'Login failed')
-        return
+      if (!data.access_token || !data.user) {
+        throw new Error('Invalid login response from server.')
       }
 
       onLogin(data.access_token, data.user)
-    } catch {
-      setError('Could not connect to the server.')
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Login failed'
+      )
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -57,7 +60,9 @@ function Login({ onLogin, onSwitchToRegister }: LoginProps) {
 
       {error && <p>{error}</p>}
 
-      <button type="submit">Login</button>
+      <button type="submit" disabled={loading}>
+        {loading ? 'Logging in...' : 'Login'}
+      </button>
 
       <p>
         Don't have an account?{' '}
