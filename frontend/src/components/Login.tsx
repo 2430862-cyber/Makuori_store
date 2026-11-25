@@ -3,9 +3,10 @@ import { useState, type FormEvent } from 'react'
 
 type LoginProps = {
   onLogin: (token: string, user: { id: number; name: string; email: string; role: string }) => void
+  onSwitchToRegister: () => void
 }
 
-function Login({ onLogin }: LoginProps) {
+function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -57,9 +58,15 @@ function Login({ onLogin }: LoginProps) {
       {error && <p>{error}</p>}
 
       <button type="submit">Login</button>
+
+      <p>
+        Don't have an account?{' '}
+        <button type="button" onClick={onSwitchToRegister}>
+          Register
+        </button>
+      </p>
     </form>
   )
 }
 
 export default Login
-
