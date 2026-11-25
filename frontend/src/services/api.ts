@@ -1,53 +1,94 @@
+
 const API_URL = 'https://makuori-store.onrender.com'
 
+// Get all products (public access)
 export async function getProducts() {
   const response = await fetch(`${API_URL}/products`)
+
+  if (!response.ok) {
+    throw new Error('Could not load products')
+  }
+
   return response.json()
 }
 
-export async function addProduct(product: {
-  name: string
-  price: number
-  description: string
-}) {
+// Add product (admin only)
+export async function addProduct(
+  product: {
+    name: string
+    price: number
+    description: string
+  },
+  token: string
+) {
   const response = await fetch(`${API_URL}/products`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(product),
   })
 
-  return response.json()
-}
-export async function getProduct(id: number) {
-  const response = await fetch(`${API_URL}/products/${id}`)
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Could not add product')
+  }
+
   return response.json()
 }
 
+// Get one product (public access)
+export async function getProduct(id: number) {
+  const response = await fetch(`${API_URL}/products/${id}`)
+
+  if (!response.ok) {
+    throw new Error('Could not find product')
+  }
+
+  return response.json()
+}
+
+// Update product (admin only)
 export async function updateProduct(
   id: number,
   product: {
     name: string
     price: number
     description: string
-  }
+  },
+  token: string
 ) {
   const response = await fetch(`${API_URL}/products/${id}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(product),
   })
 
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Could not update product')
+  }
+
   return response.json()
 }
 
-export async function deleteProduct(id: number) {
+// Delete product (admin only)
+export async function deleteProduct(id: number, token: string) {
   const response = await fetch(`${API_URL}/products/${id}`, {
     method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   })
+
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.detail || 'Could not delete product')
+  }
 
   return response.json()
 }

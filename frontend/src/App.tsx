@@ -1,6 +1,10 @@
 
 import { useEffect, useState, type FormEvent } from 'react'
+
 import ProductForm from './components/ProductForm'
+import Login from './components/Login'
+import Register from './components/Register'
+
 import {
   getProducts,
   addProduct as createProduct,
@@ -15,145 +19,338 @@ type Product = {
   description: string
 }
 
+type User = {
+  id: number
+  name: string
+  email: string
+  role: string
+}
+
 function App() {
   const [products, setProducts] = useState<Product[]>([])
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [token, setToken] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [showRegister, setShowRegister] = useState(false)
 
-  // Read all products from FastAPI
+  // LOGIN
+  function handleLogin(accessToken: string, loggedInUser: User) {
+    setToken(accessToken)
+    setUser(loggedInUser)
+    setShowRegister(false)
+  }
+
+  // LOGOUT
+  function handleLogout() {
+    setToken(null)
+    setUser(null)
+    setEditingProduct(null)
+    setShowRegister(false)
+  }
+
+  // LOAD PRODUCTS
   useEffect(() => {
     async function loadProducts() {
-      const data = await getProducts()
-      setProducts(data)
+      try {
+        const data = await getProducts()
+        setProducts(data)
+      } catch {
+        console.error('Could not load products')
+      }
     }
 
     loadProducts()
   }, [])
 
-  // Create product
+  // ADD PRODUCT
   async function addProduct(product: Omit<Product, 'id'>) {
-    const newProduct = await createProduct(product)
-    setProducts([...products, newProduct])
+    if (!token || user?.role !== 'admin') {
+      alert('Admin login required.')
+      return
+    }
+
+    try {
+      const newProduct = await createProduct(product, token)
+      setProducts((current) => [...current, newProduct])
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not add product')
+    }
   }
 
-  // Update product
+  // UPDATE PRODUCT
   async function updateProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (!editingProduct) return
+    if (!editingProduct || !token || user?.role !== 'admin') {
+      alert('Admin login required.')
+      return
+    }
 
-    const updatedProduct = await saveProduct(
-      editingProduct.id,
-      {
-        name: editingProduct.name,
-        price: editingProduct.price,
-        description: editingProduct.description,
-      }
-    )
-
-    setProducts(
-      products.map((product) =>
-        product.id === editingProduct.id ? updatedProduct : product
+    try {
+      const updatedProduct = await saveProduct(
+        editingProduct.id,
+        {
+          name: editingProduct.name,
+          price: editingProduct.price,
+          description: editingProduct.description,
+        },
+        token
       )
-    )
 
-    setEditingProduct(null)
+      setProducts((current) =>
+        current.map((product) =>
+          product.id === editingProduct.id ? updatedProduct : product
+        )
+      )
+
+      setEditingProduct(null)
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not update product')
+    }
   }
 
-  // Delete product
+  // DELETE PRODUCT
   async function deleteProduct(id: number) {
-    await removeProduct(id)
-    setProducts(products.filter((product) => product.id !== id))
+    if (!token || user?.role !== 'admin') {
+      alert('Admin login required.')
+      return
+    }
+
+    if (!window.confirm('Are you sure you want to delete this product?')) {
+      return
+    }
+
+    try {
+      await removeProduct(id, token)
+
+      setProducts((current) =>
+        current.filter((product) => product.id !== id)
+      )
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not delete product')
+    }
   }
 
   return (
-    <div>
-      <header>
-        <h1>MAKUORI</h1>
-        <p>Handmade with love</p>
+    <div className="store">
+
+      {/* HEADER */}
+      <header className="site-header">
+        <div className="header-inner">
+          <a href="#" className="brand-logo">MAKUORI</a>
+
+          <nav className="main-navigation">
+            <a href="#">Home</a>
+            <a href="#products">Collection</a>
+            <a href="#about">About</a>
+            <a href="#contact">Contact</a>
+          </nav>
+
+          <a href="#products" className="header-shop-button">
+            Shop Now
+          </a>
+        </div>
       </header>
 
       <main>
-        <h2>Welcome to Makuori Store</h2>
-        <p>Discover handmade macrame products and beautiful hijabs.</p>
 
-        <ProductForm onAdd={addProduct} />
+        {/* HERO SECTION */}
+        <section className="hero-section">
+          <div className="hero-content">
+            <p className="eyebrow">
+              THOUGHTFULLY MADE · BEAUTIFULLY YOURS
+            </p>
 
-        <h2>Product List</h2>
+            <h2>Welcome to Makuori</h2>
 
-        {products.length === 0 ? (
-          <p>No products added yet.</p>
-        ) : (
-          products.map((product) => (
-            <div key={product.id}>
-              <details>
-                <summary>{product.name}</summary>
-                <p>Price: ৳{product.price}</p>
-                <p>{product.description}</p>
-              </details>
+            <p>
+              Discover handmade macrame creations and beautiful hijabs,
+              thoughtfully made to bring a little beauty into everyday life.
+            </p>
 
-              <button onClick={() => setEditingProduct(product)}>
-                Edit
-              </button>
+            <a href="#products" className="explore-button">
+              Explore Collection →
+            </a>
+          </div>
 
-              <button onClick={() => deleteProduct(product.id)}>
-                Delete
+          <div className="hero-image">
+            <img
+              src="/images/makuori-hero.png"
+              alt="Beige macrame bag and elegant hijabs from Makuori"
+            />
+          </div>
+        </section>
+
+        {/* LOGIN AND REGISTRATION */}
+        <section className="content-section">
+          {user ? (
+            <div className="section-heading">
+              <p className="eyebrow">WELCOME, {user.name}</p>
+
+              <h2>
+                {user.role === 'admin'
+                  ? 'Admin Dashboard'
+                  : 'Customer Account'}
+              </h2>
+
+              <button onClick={handleLogout} className="cancel-button">
+                Logout
               </button>
             </div>
-          ))
+          ) : (
+            <div className="form-card">
+              {showRegister ? (
+                <Register
+                  onSwitchToLogin={() => setShowRegister(false)}
+                />
+              ) : (
+                <Login
+                  onLogin={handleLogin}
+                  onSwitchToRegister={() => setShowRegister(true)}
+                />
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ADMIN PRODUCT FORM */}
+        {user?.role === 'admin' && (
+          <section className="content-section">
+            <div className="section-heading">
+              <p className="eyebrow">YOUR LITTLE COLLECTION</p>
+              <h2>Add a New Creation</h2>
+            </div>
+
+            <div className="form-card">
+              <ProductForm onAdd={addProduct} />
+            </div>
+          </section>
         )}
 
-        {editingProduct && (
-          <form onSubmit={updateProduct}>
-            <h2>Edit Product</h2>
+        {/* PRODUCT COLLECTION */}
+        <section className="content-section" id="products">
+          <div className="section-heading">
+            <p className="eyebrow">MADE WITH CARE</p>
+            <h2>Our Collection</h2>
+          </div>
 
-            <label>Product Name</label>
-            <input
-              value={editingProduct.name}
-              onChange={(e) =>
-                setEditingProduct({
-                  ...editingProduct,
-                  name: e.target.value,
-                })
-              }
-              required
-            />
+          {products.length === 0 ? (
+            <div className="empty-state">
+              <p>Your collection is waiting.</p>
+              <span>New creations will appear here.</span>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {products.map((product) => (
+                <article className="product-card" key={product.id}>
+                  <div className="product-number">
+                    MAKUORI · {product.id}
+                  </div>
 
-            <label>Price (৳)</label>
-            <input
-              type="number"
-              value={editingProduct.price}
-              onChange={(e) =>
-                setEditingProduct({
-                  ...editingProduct,
-                  price: Number(e.target.value),
-                })
-              }
-              required
-            />
+                  <h3>{product.name}</h3>
 
-            <label>Description</label>
-            <textarea
-              value={editingProduct.description}
-              onChange={(e) =>
-                setEditingProduct({
-                  ...editingProduct,
-                  description: e.target.value,
-                })
-              }
-              required
-            />
+                  <p className="product-price">
+                    ৳{product.price}
+                  </p>
 
-            <button type="submit">Update Product</button>
+                  <p className="product-description">
+                    {product.description}
+                  </p>
 
-            <button
-              type="button"
-              onClick={() => setEditingProduct(null)}
-            >
-              Cancel
-            </button>
-          </form>
+                  {user?.role === 'admin' && (
+                    <div className="product-actions">
+                      <button
+                        className="edit-button"
+                        onClick={() => setEditingProduct(product)}
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        className="delete-button"
+                        onClick={() => deleteProduct(product.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* EDIT PRODUCT */}
+        {editingProduct && user?.role === 'admin' && (
+          <section className="content-section">
+            <div className="form-card">
+              <form onSubmit={updateProduct}>
+                <h2>Edit Product</h2>
+
+                <label>Product Name</label>
+                <input
+                  value={editingProduct.name}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      name: e.target.value,
+                    })
+                  }
+                  required
+                />
+
+                <label>Price (৳)</label>
+                <input
+                  type="number"
+                  value={editingProduct.price}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      price: Number(e.target.value),
+                    })
+                  }
+                  required
+                />
+
+                <label>Description</label>
+                <textarea
+                  value={editingProduct.description}
+                  onChange={(e) =>
+                    setEditingProduct({
+                      ...editingProduct,
+                      description: e.target.value,
+                    })
+                  }
+                  required
+                />
+
+                <div className="form-actions">
+                  <button type="submit" className="primary-button">
+                    Update Product
+                  </button>
+
+                  <button
+                    type="button"
+                    className="cancel-button"
+                    onClick={() => setEditingProduct(null)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </section>
         )}
+
       </main>
+
+      {/* FOOTER */}
+      <footer className="site-footer">
+        <h2>MAKUORI</h2>
+        <p>Handmade with love, made to be cherished.</p>
+        <span>© 2026 Makuori Store</span>
+      </footer>
+
     </div>
   )
 }
